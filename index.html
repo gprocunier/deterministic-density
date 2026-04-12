@@ -170,7 +170,7 @@ automatically become useful Gold capacity.</p>
 <h3 id="conceptual-flow-host-architecture-and-tiering">Conceptual Flow:
 Host Architecture and Tiering</h3>
 <div class="mermaid">graph TD
-    Host["Physical EPYC CPU"] --> Reserved["Host Reserved CPUs (12 Threads)"]
+    Host["Physical CPU"] --> Reserved["Host Reserved CPUs (12 Threads)"]
     Host --> Guest["Shared Guest Domain Pool"]
 
     Reserved --> HK["Housekeeping<br/>Networking, libvirt, OVS"]
