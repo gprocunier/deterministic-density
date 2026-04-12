@@ -25,7 +25,6 @@ Regenerate the repo `README.md`, root `index.html`, and copied `assets/site.css`
 <a id="overview"></a>
 # Deterministic Virtualization: Rethinking CPU Architecture with Cgroup Tiering
 
-**A Practical Reflection on My Calabi and OpenStack Cgroup-Tiering Models**
 
 When I think about how we used to size virtualization hosts, the pattern was simple: buy the fastest, biggest CPU the budget could tolerate, drop everything into one pool, and hope the noisy neighbors stayed quiet.
 
