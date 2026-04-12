@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Deterministic Density</title>
+    <meta name="description" content="A practical reflection on deterministic virtualization, cgroup tiering, and why symmetric Gold, Silver, and Bronze capacity changes the density conversation.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Red+Hat+Display:wght@500;700&family=Red+Hat+Mono:wght@400;500&family=Red+Hat+Text:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/site.css">
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: 'base',
+        securityLevel: 'loose',
+        flowchart: {
+          useMaxWidth: true,
+          htmlLabels: true,
+          nodeSpacing: 30,
+          rankSpacing: 42
+        },
+        themeVariables: {
+          fontFamily: '"Red Hat Text", "Helvetica Neue", Arial, sans-serif',
+          fontSize: '18px',
+          primaryColor: '#fff4e5',
+          primaryBorderColor: '#e0e0e0',
+          primaryTextColor: '#151515',
+          lineColor: '#8a8d90',
+          clusterBkg: '#ffffff',
+          clusterBorder: '#c7c7c7'
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <div class="site-header__inner">
+          <p class="eyebrow">Deterministic Density</p>
+          <div class="site-brand">
+            <div>
+              <h1 class="site-brand__title"><a href="index.html">Deterministic Density</a></h1>
+              <p class="site-brand__tagline">A practitioner’s editorial on cgroup tiering, Effective Constrained Clock, and why symmetric CPU tiers change the economics of virtualization density.</p>
+            </div>
+          </div>
+          <div class="site-header__actions">
+            <a href="https://github.com/gprocunier/deterministic-density"><kbd>READ ON GITHUB</kbd></a>
+            <a href="https://github.com/gprocunier/openstack-cgroup-tiering"><kbd>CGROUP THESIS</kbd></a>
+            <a href="https://gprocunier.github.io/calabi/host-resource-management.html"><kbd>CALABI PROJECT</kbd></a>
+          </div>
+        </div>
+      </header>
+      <main class="page-shell">
+        <div class="content-column">
+          <article class="markdown-body">
+            <p><a href="https://github.com/gprocunier/deterministic-density/blob/main/LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/github/license/gprocunier/deterministic-density"></a>
+            <img alt="AMD EPYC 9005" src="https://img.shields.io/badge/AMD-EPYC%209005-black">
+            <img alt="Cgroup Tiering" src="https://img.shields.io/badge/Cgroup-Tiering-red">
+            <img alt="GitHub Pages" src="https://img.shields.io/badge/GitHub-Pages-blue"></p>
+            <h1
+id="deterministic-virtualization-rethinking-cpu-architecture-with-cgroup-tiering">Deterministic
+Virtualization: Rethinking CPU Architecture with Cgroup Tiering</h1>
+<p><strong>A Practical Reflection on My Calabi and OpenStack
+Cgroup-Tiering Models</strong></p>
+<p>When I think about how we used to size virtualization hosts, the
+pattern was simple: buy the fastest, biggest CPU the budget could
+tolerate, drop everything into one pool, and hope the noisy neighbors
+stayed quiet.</p>
+<p>My cgroup-tiering idea, first described in my <a
+href="https://github.com/gprocunier/openstack-cgroup-tiering">2025
+OpenStack cgroup-tiering thesis</a> and later adapted for single-host
+KVM/OpenShift in my <a
+href="https://gprocunier.github.io/calabi/host-resource-management.html">Calabi
+project</a>, changes that starting point. I read it as a symmetric tier
+model, where the useful capacity comes from equal Gold, Silver, and
+Bronze slices instead of from squeezing every last vCPU into a flat
+pool.</p>
+<p>Before that chip comparison makes sense, the tiering model needs a
+little context. When I compare processors like the AMD EPYC 9655 and the
+EPYC 9575F under this model, I care less about raw throughput and more
+about how large a symmetric guest pool each chip can support while
+keeping the Gold/Silver/Bronze balance intact.</p>
+<hr />
+<h2
+id="1-the-density-paradigm-traditional-virtualization-vs-guardrail-tiering">1.
+The Density Paradigm: Traditional Virtualization vs. Guardrail
+Tiering</h2>
+<p>To explain why this matters, I start with the old habit of treating a
+host as a single pile of CPU time, then compare it with the tiered
+model.</p>
+<h3 id="the-traditional-approach-flat-pools-and-hardware-silos">The
+Traditional Approach: Flat Pools and Hardware Silos</h3>
+<p>In a standard virtualization host, the "noisy neighbor" problem is a
+constant, unmanaged threat. The hypervisor's default scheduler treats
+all guest threads relatively equally. If a developer runs an unoptimized
+script that pegs the CPU at 100%, the hypervisor will happily steal
+execution time from a mission-critical production database to serve the
+developer's script.</p>
+<p>Because running mixed environments (Production and Non-Production) on
+a flat host is a bad default, traditional best practices tend to favor
+defensive design. I treat <code>1.5:1</code> as a conservative midpoint
+between published guidance from <a
+href="https://blogs.vmware.com/cloud-foundation/2025/06/04/vcpu-to-pcpu-ratio-guidelines/">VMware
+VCF</a>, <a
+href="https://learn.microsoft.com/en-us/biztalk/technical-guides/checklist-optimizing-performance-on-hyper-v">Microsoft
+Hyper-V</a>, and <a
+href="https://www.nutanix.com/tech-center/blog/understanding-cpu-resource-management-in-nutanix-ahv">Nutanix
+AHV</a>: VMware says there is no single right ratio and that
+<code>1:1</code> is the safe starting point when quick response matters,
+Microsoft says <code>1:1</code> is best for CPU-intensive workloads, and
+Nutanix says latency-sensitive workloads should stay at no
+oversubscription or up to <code>2x</code>, while non-critical workloads
+may go higher.</p>
+<ol type="1">
+<li><strong>Physical Segregation:</strong> Organizations build entirely
+separate hardware silos (e.g., a "Prod Cluster" and a "Dev
+Cluster").</li>
+<li><strong>Defensive Sizing:</strong> Production workloads are rarely
+oversubscribed. To guarantee latency, Prod VMs are often provisioned at
+a 1:1 or strictly managed 1.5:1 ratio across the board to prevent
+contention.</li>
+<li><strong>The Result:</strong> Massive amounts of stranded, wasted
+compute. Production servers sit at 15% average utilization, wasting 85%
+of their hardware capacity just to maintain enough headroom for brief,
+unpredictable traffic spikes.</li>
+</ol>
+<h3 id="the-tiered-approach-mixed-tenancy-and-consolidation">The Tiered
+Approach: Mixed Tenancy and Consolidation</h3>
+<p>The Calabi/cgroup-tiering model addresses the noisy neighbor problem
+structurally. It keeps one tier from taking over the whole shared pool
+when the other tiers are also runnable.</p>
+<p><strong>The Density Uplift:</strong> Because the model is symmetric,
+mixed tenancy becomes practical. I can put CPU-bound non-production
+workloads beside latency-sensitive production workloads on the same host
+as long as the Gold/Silver/Bronze allocation stays balanced and the
+vendor-style baseline is kept conservative.</p>
+<ul>
+<li>Instead of running a Prod host at 15% utilization and a Dev host at
+80% utilization, you combine them.</li>
+<li>The host average utilization climbs by reclaiming stranded headroom
+from the silos.</li>
+<li>The blended host can safely run at a deterministic <strong>3:1
+symmetric oversubscription ratio</strong> across the three tiers.</li>
+</ul>
+<p>What I like about that arrangement is that it turns stranded
+production idle time into useful development throughput without making
+the tier ratios chaotic.</p>
+<hr />
+<h2 id="2-the-foundation-strict-isolation-and-symmetric-tiering">2. The
+Foundation: Strict Isolation and Symmetric Tiering</h2>
+<p>To make this density work, the Calabi model still depends on
+isolation. If the hypervisor competes with the guests for physical CPU
+cycles, the whole setup gets noisy fast. So I reserve a fixed slice of
+logical threads, for example 12 threads, for the host OS and emulators,
+and treat the rest as the shared guest pool.</p>
+<p>Once I am inside the shared guest pool, the model avoids thread
+mobbing through <strong>Symmetric Tiering</strong>. Capacity comes from
+an equal partition of that pool across Gold, Silver, and Bronze, and the
+weights only decide how those equal slices behave under contention. The
+main planning risk is asymmetric demand, because if Gold fills faster
+than Silver or Bronze, the unused capacity in those tiers does not
+automatically become useful Gold capacity.</p>
+<h3 id="conceptual-flow-host-architecture-and-tiering">Conceptual Flow:
+Host Architecture and Tiering</h3>
+<pre class="mermaid"><code>graph TD
+    Host[&quot;Physical EPYC CPU&quot;] --&gt; Reserved[&quot;Host Reserved CPUs (12 Threads)&quot;]
+    Host --&gt; Guest[&quot;Shared Guest Domain Pool&quot;]
+
+    Reserved --&gt; HK[&quot;Housekeeping&lt;br/&gt;Networking, libvirt, OVS&quot;]
+    Reserved --&gt; Emu[&quot;Emulator Threads&lt;br/&gt;QEMU, Storage I/O&quot;]
+
+    Guest --&gt; Gold[&quot;Gold Tier&lt;br/&gt;Weight: 512&quot;]
+    Guest --&gt; Silver[&quot;Silver Tier&lt;br/&gt;Weight: 333&quot;]
+    Guest --&gt; Bronze[&quot;Bronze Tier&lt;br/&gt;Weight: 167&quot;]
+
+    %% Symmetric constraint annotation
+    Gold -.- |&quot;1:1:1 vCPU Ratio&quot;| Silver
+    Silver -.- |&quot;1:1:1 vCPU Ratio&quot;| Bronze</code></pre>
+<hr />
+<h2 id="3-effective-constrained-clock-ecc-and-the-sla-floor">3.
+Effective Constrained Clock (ECC) and The SLA Floor</h2>
+<p>At full saturation, the cgroup weights (512 for Gold, 333 for Silver,
+167 for Bronze) shape Linux Completely Fair Scheduler behavior. If the
+runnable work is evenly represented across the three tiers, Gold gets
+about <strong>50.6%</strong> of the physical core's time, Silver gets
+<strong>32.9%</strong>, and Bronze gets <strong>16.5%</strong>.</p>
+<p>When I translate those percentages into clock speed, I get the
+<strong>Effective Constrained Clock (ECC)</strong>. Roughly half of a
+4.5 GHz all-core boost clock works out to about 2.28 GHz of sustained
+execution under contention.</p>
+<h3 id="the-worst-case-contention-sla">The Worst-Case Contention
+SLA</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Tier</th>
+<th style="text-align: left;">Time Slice</th>
+<th style="text-align: left;">EPYC 9575F (4.5 GHz All-Core Boost)</th>
+<th style="text-align: left;">EPYC 9655 (4.1 GHz All-Core Boost)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Gold</strong></td>
+<td style="text-align: left;">~50.6%</td>
+<td style="text-align: left;"><strong>~2.28 GHz</strong></td>
+<td style="text-align: left;">~2.07 GHz</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Silver</strong></td>
+<td style="text-align: left;">~32.9%</td>
+<td style="text-align: left;"><strong>~1.48 GHz</strong></td>
+<td style="text-align: left;">~1.35 GHz</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Bronze</strong></td>
+<td style="text-align: left;">~16.5%</td>
+<td style="text-align: left;"><strong>~0.74 GHz</strong></td>
+<td style="text-align: left;">~0.68 GHz</td>
+</tr>
+</tbody>
+</table>
+<p>That does sound low, but the point is that it is a contention floor,
+not a boost target. The actual experience still depends on the workload
+mix, but the tier model keeps the service curve predictable. For
+context, that is a different world from the 2016 era, when a flagship
+enterprise CPU like the Xeon E5-2699 v4 sat around a 2.2 GHz base clock
+and people already treated that as decent headroom.</p>
+<hr />
+<h2 id="4-map-latency-tolerance-not-environments">4. Map Latency
+Tolerance, Not Environments</h2>
+<p>A common mistake is to map environments directly to tiers, for
+example, "Production is Gold, Development is Bronze." I do not think
+that works well. I map tiers based on the workload's tolerance for
+latency, not on the environment label.</p>
+<ul>
+<li><p><strong>Gold (Synchronous/Interactive):</strong> Anything a human
+or live API is actively waiting on.</p>
+<ul>
+<li><em>Prod:</em> Kubernetes Masters (<code>etcd</code>), primary
+transactional databases, real-time auth.</li>
+<li><em>Dev:</em> Active developer VDI workspaces, interactive
+debuggers, "inner-loop" code compilation.</li>
+</ul></li>
+<li><p><strong>Silver (Asynchronous/Infrastructure):</strong> Highly
+available but fundamentally asynchronous or heavily cached.</p>
+<ul>
+<li><em>Prod:</em> Ingress routers, Observability (Prometheus/Grafana),
+Message Brokers (Kafka), Software-Defined Storage (Ceph).</li>
+<li><em>Dev:</em> Staging control planes, internal Identity/DNS
+servers.</li>
+</ul></li>
+<li><p><strong>Bronze (Deferrable/Batch):</strong> Background jobs where
+execution time is flexible.</p>
+<ul>
+<li><em>Prod:</em> Data warehousing (ETL), async email/PDF rendering,
+log archival.</li>
+<li><em>Dev:</em> Nightly automated test suites, CI/CD PR runners,
+static code analysis.</li>
+</ul></li>
+</ul>
+<p>Because of the cgroup weights, a Bronze background job cannot
+dominate the shared pool when Gold and Silver are also runnable. That is
+the property I care about.</p>
+<hr />
+<h2 id="5-the-sweet-spot-and-idle-borrowing">5. The "Sweet Spot" and
+Idle Borrowing</h2>
+<p>The ECC floors represent the contention case. The cgroup weights only
+matter when there is a scheduler queue. If Gold and Silver VMs are idle,
+the Bronze tier can use the spare CPU through <strong>Idle
+Borrowing</strong>.</p>
+<h3 id="conceptual-flow-cfs-idle-borrowing-logic">Conceptual Flow: CFS
+Idle Borrowing Logic</h3>
+<pre class="mermaid"><code>graph TD
+    Start[&quot;Bronze vCPU Demands Compute&quot;] --&gt; QueueCheck{&quot;Are Gold/Silver vCPUs demanding&lt;br/&gt;compute on this physical core?&quot;}
+
+    QueueCheck --&gt;|&quot;Yes&quot;| Contended[&quot;Apply Cgroup Weights&quot;]
+    Contended --&gt; Throttled[&quot;Bronze runs at 16.5% Time Slice&lt;br/&gt;Effective: ~0.74 GHz&quot;]
+
+    QueueCheck --&gt;|&quot;No&quot;| Idle[&quot;Idle Borrowing Activated&quot;]
+    Idle --&gt; Native[&quot;Bronze can use spare CPU&lt;br/&gt;Effective: Native host speed while idle&quot;]</code></pre>
+<p>To keep that steady state, I would plan for Gold and Silver to leave
+enough average headroom for Bronze to borrow when the higher tiers are
+idle.</p>
+<hr />
+<h2 id="6-capacity-planning-traditional-vs-tiered-density">6. Capacity
+Planning: Traditional vs. Tiered Density</h2>
+<p>To compare the economics, I set a traditional flat-pool host beside
+the Calabi symmetric tiered model. In the tiered case, capacity comes
+from equal Gold, Silver, and Bronze slices, so the host ceiling is the
+symmetric guest pool rather than the most aggressive single-tier
+packing.</p>
+<p><em>(Note: Guest pools calculated after reserving 12 host threads for
+the hypervisor: 9575F = 116 threads; 9655 = 180 threads.)</em></p>
+<h3 id="scenario-a-t-shirt-sizing-optimal-density-stacking">Scenario A:
+T-Shirt Sizing (Optimal Density Stacking)</h3>
+<p>In <a
+href="https://www.linkedin.com/pulse/size-matters-cloud-vm-statistics-tech-stack-tuesday-howard-young-77rff">Howard
+Young's summary of Zadara's 2024 VM sampling</a>, 60.8% of the sample is
+2 vCPU, 24.2% is 4 vCPU, and 10.1% is 8 vCPU. That is close enough to a
+plain 60/30/10 split for this comparison. The table below uses exact
+10-VM packs in that ratio: 6 x 2-vCPU, 3 x 4-vCPU, and 1 x 8-vCPU, or 32
+vCPU per pack.</p>
+<p><strong>EPYC 9575F</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Mix Component</th>
+<th style="text-align: left;">1:1</th>
+<th style="text-align: left;">1.5:1</th>
+<th style="text-align: left;">3:1 tiered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>2-vCPU VMs</strong></td>
+<td style="text-align: left;">18</td>
+<td style="text-align: left;">30</td>
+<td style="text-align: left;">60</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>4-vCPU VMs</strong></td>
+<td style="text-align: left;">9</td>
+<td style="text-align: left;">15</td>
+<td style="text-align: left;">30</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>8-vCPU VMs</strong></td>
+<td style="text-align: left;">3</td>
+<td style="text-align: left;">5</td>
+<td style="text-align: left;">10</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Total VMs</strong></td>
+<td style="text-align: left;"><strong>30</strong></td>
+<td style="text-align: left;"><strong>50</strong></td>
+<td style="text-align: left;"><strong>100</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Gain vs 1:1</strong></td>
+<td style="text-align: left;">N/A</td>
+<td style="text-align: left;">1.67x</td>
+<td style="text-align: left;"><strong>3.33x</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>vCPU consumed</strong></td>
+<td style="text-align: left;">96</td>
+<td style="text-align: left;">160</td>
+<td style="text-align: left;">320</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Reserve/slack</strong></td>
+<td style="text-align: left;">20</td>
+<td style="text-align: left;">14</td>
+<td style="text-align: left;">28</td>
+</tr>
+</tbody>
+</table>
+<p><strong>EPYC 9655</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Mix Component</th>
+<th style="text-align: left;">1:1</th>
+<th style="text-align: left;">1.5:1</th>
+<th style="text-align: left;">3:1 tiered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>2-vCPU VMs</strong></td>
+<td style="text-align: left;">30</td>
+<td style="text-align: left;">48</td>
+<td style="text-align: left;">96</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>4-vCPU VMs</strong></td>
+<td style="text-align: left;">15</td>
+<td style="text-align: left;">24</td>
+<td style="text-align: left;">48</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>8-vCPU VMs</strong></td>
+<td style="text-align: left;">5</td>
+<td style="text-align: left;">8</td>
+<td style="text-align: left;">16</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Total VMs</strong></td>
+<td style="text-align: left;"><strong>50</strong></td>
+<td style="text-align: left;"><strong>80</strong></td>
+<td style="text-align: left;"><strong>160</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Gain vs 1:1</strong></td>
+<td style="text-align: left;">N/A</td>
+<td style="text-align: left;">1.60x</td>
+<td style="text-align: left;"><strong>3.20x</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>vCPU consumed</strong></td>
+<td style="text-align: left;">160</td>
+<td style="text-align: left;">256</td>
+<td style="text-align: left;">512</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Reserve/slack</strong></td>
+<td style="text-align: left;">20</td>
+<td style="text-align: left;">14</td>
+<td style="text-align: left;">28</td>
+</tr>
+</tbody>
+</table>
+<div class="note">
+<div class="title">
+<p>Note</p>
+</div>
+<p>The 9655 shows slightly less relative gain than the 9575F because its
+strict <code>1:1</code> baseline is already stronger. The absolute
+outcome is still better on the 9655, but the percentage uplift
+compresses because the denominator is larger.</p>
+</div>
+<p><strong>Value:</strong> On this 60/30/10 small-instance mix, the
+<code>1.5:1</code> flat-pool midpoint already gives a visible lift over
+strict <code>1:1</code>, but the tiered model is where the step-change
+appears. The 9575F moves from 30 mixed-size VMs at <code>1:1</code> to
+50 at <code>1.5:1</code> and 100 in the tiered model, while the 9655
+moves from 50 to 80 to 160. I would treat the leftover vCPU in each
+column as intentional reserve for host housekeeping, QEMU emulator
+threads, IOThreads, and small mix skew, not as accidental waste.</p>
+<h3 id="scenario-b-openshift-estate-and-orthogonal-tenancy">Scenario B:
+OpenShift Estate and Orthogonal Tenancy</h3>
+<p>Consider a primary OpenShift estate shaped like this:</p>
+<ul>
+<li><strong>Gold:</strong> 3 masters, 24 vCPU total (8 vCPU each)</li>
+<li><strong>Silver:</strong> 3 infra VMs, 24 vCPU total: 10 vCPU for <a
+href="https://docs.redhat.com/en/documentation/red_hat_openshift_data_foundation/4.10/html/planning_your_deployment/infrastructure-requirements_rhodf">OpenShift
+Data Foundation</a>, 4 vCPU for <a
+href="https://docs.redhat.com/en/documentation/red_hat_ansible_automation_platform/2.4/html-single/red_hat_ansible_automation_platform_installation_guide/red_hat_ansible_automation_platform_installation_guide">Red
+Hat Ansible Automation Platform</a>, and 10 vCPU for <a
+href="https://docs.redhat.com/en/documentation/openshift_container_platform/4.10/html/logging/configuring-your-logging-deployment">OpenShift
+Logging</a> plus <a
+href="https://docs.redhat.com/en/documentation/red_hat_build_of_keycloak/26.4/html-single/high_availability_guide/">Red
+Hat build of Keycloak</a></li>
+<li><strong>Bronze:</strong> 3 standard workers, 24 vCPU total (8 vCPU
+each)</li>
+</ul>
+<p>That makes the primary estate a 72-vCPU footprint before any second
+tenant is added.</p>
+<p><strong>EPYC 9575F</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Capacity After Primary Estate</th>
+<th style="text-align: left;">1:1</th>
+<th style="text-align: left;">1.5:1</th>
+<th style="text-align: left;">3:1 tiered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>vCPU remaining</strong></td>
+<td style="text-align: left;">44</td>
+<td style="text-align: left;">102</td>
+<td style="text-align: left;">276</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Tenant slots</strong> <em>(2 vCPU
+each)</em></td>
+<td style="text-align: left;">22</td>
+<td style="text-align: left;">51</td>
+<td style="text-align: left;">138</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Additional 72-vCPU
+estates</strong></td>
+<td style="text-align: left;">0 full estates + slack (44 vCPU)</td>
+<td style="text-align: left;">1 full estate + slack (30 vCPU)</td>
+<td style="text-align: left;">3 full estates + slack (60 vCPU)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Gain vs 1:1</strong></td>
+<td style="text-align: left;">N/A</td>
+<td style="text-align: left;">2.32x</td>
+<td style="text-align: left;"><strong>6.27x</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Gain vs 1.5:1</strong></td>
+<td style="text-align: left;">N/A</td>
+<td style="text-align: left;">N/A</td>
+<td style="text-align: left;"><strong>2.71x</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>EPYC 9655</strong></p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Capacity After Primary Estate</th>
+<th style="text-align: left;">1:1</th>
+<th style="text-align: left;">1.5:1</th>
+<th style="text-align: left;">3:1 tiered</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>vCPU remaining</strong></td>
+<td style="text-align: left;">108</td>
+<td style="text-align: left;">198</td>
+<td style="text-align: left;">468</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Tenant slots</strong> <em>(2 vCPU
+each)</em></td>
+<td style="text-align: left;">54</td>
+<td style="text-align: left;">99</td>
+<td style="text-align: left;">234</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Additional 72-vCPU
+estates</strong></td>
+<td style="text-align: left;">1 full estate + slack (36 vCPU)</td>
+<td style="text-align: left;">2 full estates + slack (54 vCPU)</td>
+<td style="text-align: left;">6 full estates + slack (36 vCPU)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Gain vs 1:1</strong></td>
+<td style="text-align: left;">N/A</td>
+<td style="text-align: left;">1.83x</td>
+<td style="text-align: left;"><strong>4.33x</strong></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Gain vs 1.5:1</strong></td>
+<td style="text-align: left;">N/A</td>
+<td style="text-align: left;">N/A</td>
+<td style="text-align: left;"><strong>2.36x</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Value:</strong> The <code>1:1</code> columns are the control
+case, and the primary <code>72-vCPU</code> estate fits on both chips.
+The difference is what remains after that first estate is in place: on
+the 9575F, <code>1:1</code> leaves only <code>44 vCPU</code>, which is
+not enough for a second full estate, while the 9655 can fit one more.
+The <code>1.5:1</code> midpoint moves those chips to one and two
+additional estates. The tiered model moves them to three and six. That
+is the practical tenancy jump: not a marginal improvement in worker
+count, but a host that can absorb whole additional clusters without
+abandoning predictable service tiers.</p>
+<hr />
+<h2 id="conclusion-density-vs-baseline-sla-guarantees">Conclusion:
+Density vs. Baseline SLA Guarantees</h2>
+<p>My read is that the Calabi and OpenStack cgroup-tiering models I
+wrote work well as long as the symmetric tier constraint is respected.
+Compared with the conservative oversubscription assumptions many teams
+used in the 2016 era, the same chassis can absorb a much larger workload
+mix without giving up the SLA floor. For me, <code>1.5:1</code> is a
+midpoint, not a universal rule, because it sits between VMware's
+<code>1:1</code> starting point and Nutanix's <code>2x</code> upper
+bound for latency-sensitive workloads. I think that is the practical
+gain here: legacy flat pools give way to a denser host without losing
+the ability to reason about the tiers.</p>
+<p>Choosing the right silicon to drive this model requires an honest
+assessment of the organization's worst-case scenario:</p>
+<ul>
+<li><strong>Choose the AMD EPYC 9655 if density and throughput matter
+most.</strong> It gives better hardware ROI and more symmetric guest
+capacity for CI/CD and worker nodes.</li>
+<li><strong>Choose the AMD EPYC 9575F if you want more per-core
+headroom.</strong> You pay more per symmetric slot, but you get a faster
+CPU baseline for workloads that are sensitive to contention floors.</li>
+</ul>
+
+          </article>
+        </div>
+        <aside class="side-column">
+          <section class="context-block">
+            <h2>Context</h2>
+            <p>This site publishes the essay in a Pages layout modeled after the Calabi documentation UX, but focused on the density argument itself.</p>
+          </section>
+          <section class="source-block">
+            <h2>Primary Links</h2>
+            <ul class="path-list">
+              <li>
+                <a href="https://github.com/gprocunier/deterministic-density">
+                  <strong>Repository</strong>
+                  <span>Source for this essay and Pages site.</span>
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/gprocunier/openstack-cgroup-tiering">
+                  <strong>2025 Cgroup Thesis</strong>
+                  <span>The original OpenStack cgroup-tiering work.</span>
+                </a>
+              </li>
+              <li>
+                <a href="https://gprocunier.github.io/calabi/host-resource-management.html">
+                  <strong>Calabi Project</strong>
+                  <span>The single-host KVM and OpenShift adaptation.</span>
+                </a>
+              </li>
+            </ul>
+          </section>
+          <section class="toc-block">
+            <h2>On This Page</h2>
+            <ul>
+              <li><a href="#deterministic-virtualization-rethinking-cpu-architecture-with-cgroup-tiering">Overview</a></li>
+              <li><a href="#1-the-density-paradigm-traditional-virtualization-vs-guardrail-tiering">The Density Paradigm</a></li>
+              <li><a href="#2-the-foundation-strict-isolation-and-symmetric-tiering">Strict Isolation and Symmetric Tiering</a></li>
+              <li><a href="#3-effective-constrained-clock-ecc-and-the-sla-floor">ECC and the SLA Floor</a></li>
+              <li><a href="#4-map-latency-tolerance-not-environments">Map Latency Tolerance</a></li>
+              <li><a href="#5-the-sweet-spot-and-idle-borrowing">Idle Borrowing</a></li>
+              <li><a href="#6-capacity-planning-traditional-vs-tiered-density">Capacity Planning</a></li>
+              <li><a href="#scenario-a-t-shirt-sizing-optimal-density-stacking">Scenario A</a></li>
+              <li><a href="#scenario-b-openshift-estate-and-orthogonal-tenancy">Scenario B</a></li>
+              <li><a href="#conclusion-density-vs-baseline-sla-guarantees">Conclusion</a></li>
+            </ul>
+          </section>
+        </aside>
+      </main>
+      <footer class="site-footer">
+        Published from repository docs on 2026-04-12.
+      </footer>
+    </div>
+  </body>
+</html>
