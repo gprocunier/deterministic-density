@@ -12,14 +12,6 @@
 <a href="https://github.com/gprocunier/openstack-cgroup-tiering"><kbd>&nbsp;&nbsp;CGROUP THESIS&nbsp;&nbsp;</kbd></a>
 <a href="https://gprocunier.github.io/calabi/host-resource-management.html"><kbd>&nbsp;&nbsp;CALABI PROJECT&nbsp;&nbsp;</kbd></a>
 
-## Site Build
-
-Regenerate the repo `README.md`, root `index.html`, and copied `assets/site.css` with:
-
-```bash
-./scripts/build_site.py
-```
-
 ---
 
 <a id="overview"></a>
