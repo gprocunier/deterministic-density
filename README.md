@@ -30,7 +30,7 @@ When I think about how we used to size virtualization hosts, the pattern was sim
 
 My cgroup-tiering idea, first described in my [2025 OpenStack cgroup-tiering thesis](https://github.com/gprocunier/openstack-cgroup-tiering) and later adapted for single-host KVM/OpenShift in my [Calabi project](https://gprocunier.github.io/calabi/host-resource-management.html), changes that starting point. I read it as a symmetric tier model, where the useful capacity comes from equal Gold, Silver, and Bronze slices instead of from squeezing every last vCPU into a flat pool.
 
-Before that chip comparison makes sense, the tiering model needs a little context. When I compare processors like the AMD EPYC 9655 and the EPYC 9575F under this model, I care less about raw throughput and more about how large a symmetric guest pool each chip can support while keeping the Gold/Silver/Bronze balance intact.
+Before that chip comparison makes sense, the tiering model needs a little context. When I compare processors like the AMD EPYC 9655 and the EPYC 9575F under this model, I care less about raw throughput and more about how large a symmetric guest pool each chip can support while keeping the Gold/Silver/Bronze balance intact. I am not affiliated with AMD. I singled out these two parts because, to my eye, they represent the current state of dense, high-clock-frequency server silicon in 2026, which makes them useful reference points for this kind of tiered-capacity argument.
 
 ---
 
