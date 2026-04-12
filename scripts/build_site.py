@@ -115,11 +115,11 @@ def build_index(article_html: str) -> str:
     <div class="site-shell">
       <header class="site-header">
         <div class="site-header__inner">
-          <p class="eyebrow">Curvature</p>
+          <p class="eyebrow">Oversubscription</p>
           <div class="site-brand">
             <div>
               <h1 class="site-brand__title"><a href="index.html">Deterministic Density</a></h1>
-              <p class="site-brand__tagline">A practitioner’s editorial on cgroup tiering, Effective Constrained Clock, and why symmetric CPU tiers change the economics of virtualization density.</p>
+              <p class="site-brand__tagline">A practitioner's editorial on cgroup tiering, Effective Constrained Clock, and why symmetric CPU tiers change the economics of virtualization density.</p>
             </div>
           </div>
           <div class="site-header__actions">
