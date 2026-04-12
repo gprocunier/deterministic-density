@@ -60,7 +60,8 @@
             <img alt="AMD EPYC 9005" src="https://img.shields.io/badge/AMD-EPYC%209005-black">
             <img alt="Cgroup Tiering" src="https://img.shields.io/badge/Cgroup-Tiering-red">
             <img alt="GitHub Pages" src="https://img.shields.io/badge/GitHub-Pages-blue"></p>
-            <h1
+            <p><a id="overview"></a></p>
+<h1
 id="deterministic-virtualization-rethinking-cpu-architecture-with-cgroup-tiering">Deterministic
 Virtualization: Rethinking CPU Architecture with Cgroup Tiering</h1>
 <p><strong>A Practical Reflection on My Calabi and OpenStack
@@ -84,13 +85,14 @@ EPYC 9575F under this model, I care less about raw throughput and more
 about how large a symmetric guest pool each chip can support while
 keeping the Gold/Silver/Bronze balance intact.</p>
 <hr />
+<p><a id="density-paradigm"></a></p>
 <h2
-id="1-the-density-paradigm-traditional-virtualization-vs-guardrail-tiering">1.
-The Density Paradigm: Traditional Virtualization vs. Guardrail
-Tiering</h2>
+id="the-density-paradigm-traditional-virtualization-vs-guardrail-tiering">The
+Density Paradigm: Traditional Virtualization vs. Guardrail Tiering</h2>
 <p>To explain why this matters, I start with the old habit of treating a
 host as a single pile of CPU time, then compare it with the tiered
 model.</p>
+<p><a id="traditional-approach"></a></p>
 <h3 id="the-traditional-approach-flat-pools-and-hardware-silos">The
 Traditional Approach: Flat Pools and Hardware Silos</h3>
 <p>In a standard virtualization host, the "noisy neighbor" problem is a
@@ -127,6 +129,7 @@ compute. Production servers sit at 15% average utilization, wasting 85%
 of their hardware capacity just to maintain enough headroom for brief,
 unpredictable traffic spikes.</li>
 </ol>
+<p><a id="tiered-approach"></a></p>
 <h3 id="the-tiered-approach-mixed-tenancy-and-consolidation">The Tiered
 Approach: Mixed Tenancy and Consolidation</h3>
 <p>The Calabi/cgroup-tiering model addresses the noisy neighbor problem
@@ -149,7 +152,8 @@ symmetric oversubscription ratio</strong> across the three tiers.</li>
 production idle time into useful development throughput without making
 the tier ratios chaotic.</p>
 <hr />
-<h2 id="2-the-foundation-strict-isolation-and-symmetric-tiering">2. The
+<p><a id="foundation"></a></p>
+<h2 id="the-foundation-strict-isolation-and-symmetric-tiering">The
 Foundation: Strict Isolation and Symmetric Tiering</h2>
 <p>To make this density work, the Calabi model still depends on
 isolation. If the hypervisor competes with the guests for physical CPU
@@ -163,6 +167,7 @@ weights only decide how those equal slices behave under contention. The
 main planning risk is asymmetric demand, because if Gold fills faster
 than Silver or Bronze, the unused capacity in those tiers does not
 automatically become useful Gold capacity.</p>
+<p><a id="host-architecture-and-tiering"></a></p>
 <h3 id="conceptual-flow-host-architecture-and-tiering">Conceptual Flow:
 Host Architecture and Tiering</h3>
 <div class="mermaid">graph TD
@@ -180,8 +185,9 @@ Host Architecture and Tiering</h3>
     Gold -.- |"1:1:1 vCPU Ratio"| Silver
     Silver -.- |"1:1:1 vCPU Ratio"| Bronze</div>
 <hr />
-<h2 id="3-effective-constrained-clock-ecc-and-the-sla-floor">3.
-Effective Constrained Clock (ECC) and The SLA Floor</h2>
+<p><a id="ecc-and-sla-floor"></a></p>
+<h2 id="effective-constrained-clock-ecc-and-the-sla-floor">Effective
+Constrained Clock (ECC) and The SLA Floor</h2>
 <p>At full saturation, the cgroup weights (512 for Gold, 333 for Silver,
 167 for Bronze) shape Linux Completely Fair Scheduler behavior. If the
 runnable work is evenly represented across the three tiers, Gold gets
@@ -191,6 +197,7 @@ about <strong>50.6%</strong> of the physical core's time, Silver gets
 <strong>Effective Constrained Clock (ECC)</strong>. Roughly half of a
 4.5 GHz all-core boost clock works out to about 2.28 GHz of sustained
 execution under contention.</p>
+<p><a id="worst-case-contention-sla"></a></p>
 <h3 id="the-worst-case-contention-sla">The Worst-Case Contention
 SLA</h3>
 <table>
@@ -230,8 +237,9 @@ context, that is a different world from the 2016 era, when a flagship
 enterprise CPU like the Xeon E5-2699 v4 sat around a 2.2 GHz base clock
 and people already treated that as decent headroom.</p>
 <hr />
-<h2 id="4-map-latency-tolerance-not-environments">4. Map Latency
-Tolerance, Not Environments</h2>
+<p><a id="map-latency-tolerance"></a></p>
+<h2 id="map-latency-tolerance-not-environments">Map Latency Tolerance,
+Not Environments</h2>
 <p>A common mistake is to map environments directly to tiers, for
 example, "Production is Gold, Development is Bronze." I do not think
 that works well. I map tiers based on the workload's tolerance for
@@ -266,12 +274,14 @@ static code analysis.</li>
 dominate the shared pool when Gold and Silver are also runnable. That is
 the property I care about.</p>
 <hr />
-<h2 id="5-the-sweet-spot-and-idle-borrowing">5. The "Sweet Spot" and
-Idle Borrowing</h2>
+<p><a id="idle-borrowing"></a></p>
+<h2 id="the-sweet-spot-and-idle-borrowing">The "Sweet Spot" and Idle
+Borrowing</h2>
 <p>The ECC floors represent the contention case. The cgroup weights only
 matter when there is a scheduler queue. If Gold and Silver VMs are idle,
 the Bronze tier can use the spare CPU through <strong>Idle
 Borrowing</strong>.</p>
+<p><a id="cfs-idle-borrowing"></a></p>
 <h3 id="conceptual-flow-cfs-idle-borrowing-logic">Conceptual Flow: CFS
 Idle Borrowing Logic</h3>
 <div class="mermaid">graph TD
@@ -286,7 +296,8 @@ Idle Borrowing Logic</h3>
 enough average headroom for Bronze to borrow when the higher tiers are
 idle.</p>
 <hr />
-<h2 id="6-capacity-planning-traditional-vs-tiered-density">6. Capacity
+<p><a id="capacity-planning"></a></p>
+<h2 id="capacity-planning-traditional-vs-tiered-density">Capacity
 Planning: Traditional vs. Tiered Density</h2>
 <p>To compare the economics, I set a traditional flat-pool host beside
 the Calabi symmetric tiered model. In the tiered case, capacity comes
@@ -295,6 +306,7 @@ symmetric guest pool rather than the most aggressive single-tier
 packing.</p>
 <p><em>(Note: Guest pools calculated after reserving 12 host threads for
 the hypervisor: 9575F = 116 threads; 9655 = 180 threads.)</em></p>
+<p><a id="scenario-a"></a></p>
 <h3 id="scenario-a-t-shirt-sizing-optimal-density-stacking">Scenario A:
 T-Shirt Sizing (Optimal Density Stacking)</h3>
 <p>In <a
@@ -431,6 +443,7 @@ appears. The 9575F moves from 30 mixed-size VMs at <code>1:1</code> to
 moves from 50 to 80 to 160. I would treat the leftover vCPU in each
 column as intentional reserve for host housekeeping, QEMU emulator
 threads, IOThreads, and small mix skew, not as accidental waste.</p>
+<p><a id="scenario-b"></a></p>
 <h3 id="scenario-b-openshift-estate-and-orthogonal-tenancy">Scenario B:
 OpenShift Estate and Orthogonal Tenancy</h3>
 <p>Consider a primary OpenShift estate shaped like this:</p>
@@ -551,6 +564,7 @@ is the practical tenancy jump: not a marginal improvement in worker
 count, but a host that can absorb whole additional clusters without
 abandoning predictable service tiers.</p>
 <hr />
+<p><a id="conclusion"></a></p>
 <h2 id="conclusion-density-vs-baseline-sla-guarantees">Conclusion:
 Density vs. Baseline SLA Guarantees</h2>
 <p>My read is that the Calabi and OpenStack cgroup-tiering models I
@@ -607,16 +621,16 @@ CPU baseline for workloads that are sensitive to contention floors.</li>
           <section class="toc-block">
             <h2>On This Page</h2>
             <ul>
-              <li><a href="#deterministic-virtualization-rethinking-cpu-architecture-with-cgroup-tiering">Overview</a></li>
-              <li><a href="#1-the-density-paradigm-traditional-virtualization-vs-guardrail-tiering">The Density Paradigm</a></li>
-              <li><a href="#2-the-foundation-strict-isolation-and-symmetric-tiering">Strict Isolation and Symmetric Tiering</a></li>
-              <li><a href="#3-effective-constrained-clock-ecc-and-the-sla-floor">ECC and the SLA Floor</a></li>
-              <li><a href="#4-map-latency-tolerance-not-environments">Map Latency Tolerance</a></li>
-              <li><a href="#5-the-sweet-spot-and-idle-borrowing">Idle Borrowing</a></li>
-              <li><a href="#6-capacity-planning-traditional-vs-tiered-density">Capacity Planning</a></li>
-              <li><a href="#scenario-a-t-shirt-sizing-optimal-density-stacking">Scenario A</a></li>
-              <li><a href="#scenario-b-openshift-estate-and-orthogonal-tenancy">Scenario B</a></li>
-              <li><a href="#conclusion-density-vs-baseline-sla-guarantees">Conclusion</a></li>
+              <li><a href="#overview">Overview</a></li>
+              <li><a href="#density-paradigm">The Density Paradigm</a></li>
+              <li><a href="#foundation">Strict Isolation and Symmetric Tiering</a></li>
+              <li><a href="#ecc-and-sla-floor">ECC and the SLA Floor</a></li>
+              <li><a href="#map-latency-tolerance">Map Latency Tolerance</a></li>
+              <li><a href="#idle-borrowing">Idle Borrowing</a></li>
+              <li><a href="#capacity-planning">Capacity Planning</a></li>
+              <li><a href="#scenario-a">Scenario A</a></li>
+              <li><a href="#scenario-b">Scenario B</a></li>
+              <li><a href="#conclusion">Conclusion</a></li>
             </ul>
           </section>
         </aside>

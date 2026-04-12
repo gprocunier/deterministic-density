@@ -22,6 +22,7 @@ Regenerate the repo `README.md`, root `index.html`, and copied `assets/site.css`
 
 ---
 
+<a id="overview"></a>
 # Deterministic Virtualization: Rethinking CPU Architecture with Cgroup Tiering
 
 **A Practical Reflection on My Calabi and OpenStack Cgroup-Tiering Models**
@@ -34,10 +35,12 @@ Before that chip comparison makes sense, the tiering model needs a little contex
 
 ---
 
-## 1. The Density Paradigm: Traditional Virtualization vs. Guardrail Tiering
+<a id="density-paradigm"></a>
+## The Density Paradigm: Traditional Virtualization vs. Guardrail Tiering
 
 To explain why this matters, I start with the old habit of treating a host as a single pile of CPU time, then compare it with the tiered model.
 
+<a id="traditional-approach"></a>
 ### The Traditional Approach: Flat Pools and Hardware Silos
 
 In a standard virtualization host, the "noisy neighbor" problem is a constant, unmanaged threat. The hypervisor's default scheduler treats all guest threads relatively equally. If a developer runs an unoptimized script that pegs the CPU at 100%, the hypervisor will happily steal execution time from a mission-critical production database to serve the developer's script. 
@@ -48,6 +51,7 @@ Because running mixed environments (Production and Non-Production) on a flat hos
 2. **Defensive Sizing:** Production workloads are rarely oversubscribed. To guarantee latency, Prod VMs are often provisioned at a 1:1 or strictly managed 1.5:1 ratio across the board to prevent contention.
 3. **The Result:** Massive amounts of stranded, wasted compute. Production servers sit at 15% average utilization, wasting 85% of their hardware capacity just to maintain enough headroom for brief, unpredictable traffic spikes.
 
+<a id="tiered-approach"></a>
 ### The Tiered Approach: Mixed Tenancy and Consolidation
 
 The Calabi/cgroup-tiering model addresses the noisy neighbor problem structurally. It keeps one tier from taking over the whole shared pool when the other tiers are also runnable.
@@ -62,12 +66,14 @@ What I like about that arrangement is that it turns stranded production idle tim
 
 ---
 
-## 2. The Foundation: Strict Isolation and Symmetric Tiering
+<a id="foundation"></a>
+## The Foundation: Strict Isolation and Symmetric Tiering
 
 To make this density work, the Calabi model still depends on isolation. If the hypervisor competes with the guests for physical CPU cycles, the whole setup gets noisy fast. So I reserve a fixed slice of logical threads, for example 12 threads, for the host OS and emulators, and treat the rest as the shared guest pool.
 
 Once I am inside the shared guest pool, the model avoids thread mobbing through **Symmetric Tiering**. Capacity comes from an equal partition of that pool across Gold, Silver, and Bronze, and the weights only decide how those equal slices behave under contention. The main planning risk is asymmetric demand, because if Gold fills faster than Silver or Bronze, the unused capacity in those tiers does not automatically become useful Gold capacity.
 
+<a id="host-architecture-and-tiering"></a>
 ### Conceptual Flow: Host Architecture and Tiering
 
 ```mermaid
@@ -89,12 +95,14 @@ graph TD
 
 ---
 
-## 3. Effective Constrained Clock (ECC) and The SLA Floor
+<a id="ecc-and-sla-floor"></a>
+## Effective Constrained Clock (ECC) and The SLA Floor
 
 At full saturation, the cgroup weights (512 for Gold, 333 for Silver, 167 for Bronze) shape Linux Completely Fair Scheduler behavior. If the runnable work is evenly represented across the three tiers, Gold gets about **50.6%** of the physical core's time, Silver gets **32.9%**, and Bronze gets **16.5%**.
 
 When I translate those percentages into clock speed, I get the **Effective Constrained Clock (ECC)**. Roughly half of a 4.5 GHz all-core boost clock works out to about 2.28 GHz of sustained execution under contention.
 
+<a id="worst-case-contention-sla"></a>
 ### The Worst-Case Contention SLA
 
 | Tier       | Time Slice | EPYC 9575F (4.5 GHz All-Core Boost) | EPYC 9655 (4.1 GHz All-Core Boost) |
@@ -107,7 +115,8 @@ That does sound low, but the point is that it is a contention floor, not a boost
 
 ---
 
-## 4. Map Latency Tolerance, Not Environments
+<a id="map-latency-tolerance"></a>
+## Map Latency Tolerance, Not Environments
 
 A common mistake is to map environments directly to tiers, for example, "Production is Gold, Development is Bronze." I do not think that works well. I map tiers based on the workload's tolerance for latency, not on the environment label.
 
@@ -130,10 +139,12 @@ Because of the cgroup weights, a Bronze background job cannot dominate the share
 
 ---
 
-## 5. The "Sweet Spot" and Idle Borrowing
+<a id="idle-borrowing"></a>
+## The "Sweet Spot" and Idle Borrowing
 
 The ECC floors represent the contention case. The cgroup weights only matter when there is a scheduler queue. If Gold and Silver VMs are idle, the Bronze tier can use the spare CPU through **Idle Borrowing**.
 
+<a id="cfs-idle-borrowing"></a>
 ### Conceptual Flow: CFS Idle Borrowing Logic
 
 ```mermaid
@@ -151,12 +162,14 @@ To keep that steady state, I would plan for Gold and Silver to leave enough aver
 
 ---
 
-## 6. Capacity Planning: Traditional vs. Tiered Density
+<a id="capacity-planning"></a>
+## Capacity Planning: Traditional vs. Tiered Density
 
 To compare the economics, I set a traditional flat-pool host beside the Calabi symmetric tiered model. In the tiered case, capacity comes from equal Gold, Silver, and Bronze slices, so the host ceiling is the symmetric guest pool rather than the most aggressive single-tier packing.
 
 *(Note: Guest pools calculated after reserving 12 host threads for the hypervisor: 9575F = 116 threads; 9655 = 180 threads.)*
 
+<a id="scenario-a"></a>
 ### Scenario A: T-Shirt Sizing (Optimal Density Stacking)
 
 In [Howard Young's summary of Zadara's 2024 VM sampling](https://www.linkedin.com/pulse/size-matters-cloud-vm-statistics-tech-stack-tuesday-howard-young-77rff), 60.8% of the sample is 2 vCPU, 24.2% is 4 vCPU, and 10.1% is 8 vCPU. That is close enough to a plain 60/30/10 split for this comparison. The table below uses exact 10-VM packs in that ratio: 6 x 2-vCPU, 3 x 4-vCPU, and 1 x 8-vCPU, or 32 vCPU per pack.
@@ -190,6 +203,7 @@ In [Howard Young's summary of Zadara's 2024 VM sampling](https://www.linkedin.co
 
 **Value:** On this 60/30/10 small-instance mix, the `1.5:1` flat-pool midpoint already gives a visible lift over strict `1:1`, but the tiered model is where the step-change appears. The 9575F moves from 30 mixed-size VMs at `1:1` to 50 at `1.5:1` and 100 in the tiered model, while the 9655 moves from 50 to 80 to 160. I would treat the leftover vCPU in each column as intentional reserve for host housekeeping, QEMU emulator threads, IOThreads, and small mix skew, not as accidental waste.
 
+<a id="scenario-b"></a>
 ### Scenario B: OpenShift Estate and Orthogonal Tenancy
 
 Consider a primary OpenShift estate shaped like this:
@@ -224,6 +238,7 @@ That makes the primary estate a 72-vCPU footprint before any second tenant is ad
 
 ---
 
+<a id="conclusion"></a>
 ## Conclusion: Density vs. Baseline SLA Guarantees
 
 My read is that the Calabi and OpenStack cgroup-tiering models I wrote work well as long as the symmetric tier constraint is respected. Compared with the conservative oversubscription assumptions many teams used in the 2016 era, the same chassis can absorb a much larger workload mix without giving up the SLA floor. For me, `1.5:1` is a midpoint, not a universal rule, because it sits between VMware's `1:1` starting point and Nutanix's `2x` upper bound for latency-sensitive workloads. I think that is the practical gain here: legacy flat pools give way to a denser host without losing the ability to reason about the tiers.

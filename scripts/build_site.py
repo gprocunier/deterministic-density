@@ -170,16 +170,16 @@ def build_index(article_html: str) -> str:
           <section class="toc-block">
             <h2>On This Page</h2>
             <ul>
-              <li><a href="#deterministic-virtualization-rethinking-cpu-architecture-with-cgroup-tiering">Overview</a></li>
-              <li><a href="#1-the-density-paradigm-traditional-virtualization-vs-guardrail-tiering">The Density Paradigm</a></li>
-              <li><a href="#2-the-foundation-strict-isolation-and-symmetric-tiering">Strict Isolation and Symmetric Tiering</a></li>
-              <li><a href="#3-effective-constrained-clock-ecc-and-the-sla-floor">ECC and the SLA Floor</a></li>
-              <li><a href="#4-map-latency-tolerance-not-environments">Map Latency Tolerance</a></li>
-              <li><a href="#5-the-sweet-spot-and-idle-borrowing">Idle Borrowing</a></li>
-              <li><a href="#6-capacity-planning-traditional-vs-tiered-density">Capacity Planning</a></li>
-              <li><a href="#scenario-a-t-shirt-sizing-optimal-density-stacking">Scenario A</a></li>
-              <li><a href="#scenario-b-openshift-estate-and-orthogonal-tenancy">Scenario B</a></li>
-              <li><a href="#conclusion-density-vs-baseline-sla-guarantees">Conclusion</a></li>
+              <li><a href="#overview">Overview</a></li>
+              <li><a href="#density-paradigm">The Density Paradigm</a></li>
+              <li><a href="#foundation">Strict Isolation and Symmetric Tiering</a></li>
+              <li><a href="#ecc-and-sla-floor">ECC and the SLA Floor</a></li>
+              <li><a href="#map-latency-tolerance">Map Latency Tolerance</a></li>
+              <li><a href="#idle-borrowing">Idle Borrowing</a></li>
+              <li><a href="#capacity-planning">Capacity Planning</a></li>
+              <li><a href="#scenario-a">Scenario A</a></li>
+              <li><a href="#scenario-b">Scenario B</a></li>
+              <li><a href="#conclusion">Conclusion</a></li>
             </ul>
           </section>
         </aside>
