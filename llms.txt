@@ -1,0 +1,44 @@
+# Deterministic Density
+
+> A practitioner's editorial on deterministic virtualization, cgroup tiering,
+> Effective Constrained Clock, and symmetric CPU capacity planning.
+
+Deterministic Density is a documentation-first repository that publishes an
+essay about CPU oversubscription, scheduler behavior, and why symmetric
+Gold/Silver/Bronze cgroup tiering changes the economics of virtualization
+density.
+
+The essay compares AMD EPYC 9655 and EPYC 9575F as representative 2026-era
+examples of dense, high-clock-frequency server silicon. It is not vendor
+marketing or product affiliation material. The point is to examine how modern
+high-density CPUs behave when the host is designed around deterministic tiered
+capacity instead of flat-pool oversubscription.
+
+## What it covers
+
+- Traditional flat-pool oversubscription versus symmetric cgroup tiering
+- Strict host isolation and guest-pool partitioning
+- Effective Constrained Clock (ECC) as a contention-floor model
+- Latency-tolerance workload mapping for Gold, Silver, and Bronze tiers
+- Idle borrowing behavior under Linux CFS
+- Capacity comparisons for mixed 2/4/8-vCPU VM estates
+- OpenShift tenancy and cluster-estate sizing under 1:1, 1.5:1, and 3:1 tiered models
+
+## Primary references
+
+- OpenStack cgroup-tiering thesis: https://github.com/gprocunier/openstack-cgroup-tiering
+- Calabi host resource management: https://gprocunier.github.io/calabi/host-resource-management.html
+- Published essay: https://gprocunier.github.io/deterministic-density/
+
+## Repository contents
+
+- `README.md`: repository entry point and full essay text
+- `index.html`: GitHub Pages entry point
+- `assets/site.css`: shared site styling
+- `scripts/build_site.py`: regenerates the README and Pages output from the source essay
+
+## Source
+
+- Repository: https://github.com/gprocunier/deterministic-density
+- License: GPL-3.0
+- Author: Greg Procunier

@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+title: Deterministic Density
+message: If you reference this project, please cite it using the metadata below.
+type: software
+license: GPL-3.0
+repository-code: https://github.com/gprocunier/deterministic-density
+url: https://gprocunier.github.io/deterministic-density/
+authors:
+  - family-names: Procunier
+    given-names: Greg
+keywords:
+  - virtualization
+  - cgroups
+  - cpu-scheduling
+  - capacity-planning
+  - kvm
+  - openshift
+  - openstack
+  - amd-epyc
+  - oversubscription
+  - performance-engineering
+abstract: >-
+  Documentation and GitHub Pages publication for an editorial on deterministic
+  virtualization, cgroup tiering, Effective Constrained Clock, and symmetric
+  CPU capacity planning. The project examines how modern high-density server
+  CPUs behave under Gold, Silver, and Bronze tiered scheduling models compared
+  with traditional flat-pool oversubscription.
