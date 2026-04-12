@@ -165,20 +165,20 @@ than Silver or Bronze, the unused capacity in those tiers does not
 automatically become useful Gold capacity.</p>
 <h3 id="conceptual-flow-host-architecture-and-tiering">Conceptual Flow:
 Host Architecture and Tiering</h3>
-<pre class="mermaid"><code>graph TD
-    Host[&quot;Physical EPYC CPU&quot;] --&gt; Reserved[&quot;Host Reserved CPUs (12 Threads)&quot;]
-    Host --&gt; Guest[&quot;Shared Guest Domain Pool&quot;]
+<div class="mermaid">graph TD
+    Host["Physical EPYC CPU"] --> Reserved["Host Reserved CPUs (12 Threads)"]
+    Host --> Guest["Shared Guest Domain Pool"]
 
-    Reserved --&gt; HK[&quot;Housekeeping&lt;br/&gt;Networking, libvirt, OVS&quot;]
-    Reserved --&gt; Emu[&quot;Emulator Threads&lt;br/&gt;QEMU, Storage I/O&quot;]
+    Reserved --> HK["Housekeeping<br/>Networking, libvirt, OVS"]
+    Reserved --> Emu["Emulator Threads<br/>QEMU, Storage I/O"]
 
-    Guest --&gt; Gold[&quot;Gold Tier&lt;br/&gt;Weight: 512&quot;]
-    Guest --&gt; Silver[&quot;Silver Tier&lt;br/&gt;Weight: 333&quot;]
-    Guest --&gt; Bronze[&quot;Bronze Tier&lt;br/&gt;Weight: 167&quot;]
+    Guest --> Gold["Gold Tier<br/>Weight: 512"]
+    Guest --> Silver["Silver Tier<br/>Weight: 333"]
+    Guest --> Bronze["Bronze Tier<br/>Weight: 167"]
 
     %% Symmetric constraint annotation
-    Gold -.- |&quot;1:1:1 vCPU Ratio&quot;| Silver
-    Silver -.- |&quot;1:1:1 vCPU Ratio&quot;| Bronze</code></pre>
+    Gold -.- |"1:1:1 vCPU Ratio"| Silver
+    Silver -.- |"1:1:1 vCPU Ratio"| Bronze</div>
 <hr />
 <h2 id="3-effective-constrained-clock-ecc-and-the-sla-floor">3.
 Effective Constrained Clock (ECC) and The SLA Floor</h2>
@@ -274,14 +274,14 @@ the Bronze tier can use the spare CPU through <strong>Idle
 Borrowing</strong>.</p>
 <h3 id="conceptual-flow-cfs-idle-borrowing-logic">Conceptual Flow: CFS
 Idle Borrowing Logic</h3>
-<pre class="mermaid"><code>graph TD
-    Start[&quot;Bronze vCPU Demands Compute&quot;] --&gt; QueueCheck{&quot;Are Gold/Silver vCPUs demanding&lt;br/&gt;compute on this physical core?&quot;}
+<div class="mermaid">graph TD
+    Start["Bronze vCPU Demands Compute"] --> QueueCheck{"Are Gold/Silver vCPUs demanding<br/>compute on this physical core?"}
 
-    QueueCheck --&gt;|&quot;Yes&quot;| Contended[&quot;Apply Cgroup Weights&quot;]
-    Contended --&gt; Throttled[&quot;Bronze runs at 16.5% Time Slice&lt;br/&gt;Effective: ~0.74 GHz&quot;]
+    QueueCheck -->|"Yes"| Contended["Apply Cgroup Weights"]
+    Contended --> Throttled["Bronze runs at 16.5% Time Slice<br/>Effective: ~0.74 GHz"]
 
-    QueueCheck --&gt;|&quot;No&quot;| Idle[&quot;Idle Borrowing Activated&quot;]
-    Idle --&gt; Native[&quot;Bronze can use spare CPU&lt;br/&gt;Effective: Native host speed while idle&quot;]</code></pre>
+    QueueCheck -->|"No"| Idle["Idle Borrowing Activated"]
+    Idle --> Native["Bronze can use spare CPU<br/>Effective: Native host speed while idle"]</div>
 <p>To keep that steady state, I would plan for Gold and Silver to leave
 enough average headroom for Bronze to borrow when the higher tiers are
 idle.</p>
